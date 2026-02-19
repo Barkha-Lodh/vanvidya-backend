@@ -1,0 +1,24 @@
+"Django==4.2
+djangorestframework>=3.14.0
+psycopg2-binary>=2.9.6
+django-cors-headers>=4.0.0
+django-filter>=23.2
+Pillow>=10.0.0
+python-decouple>=3.8
+requests>=2.31.0
+deep-translator>=1.11.4 "
+
+
+Django==4.2.7
+djangorestframework==3.14.0
+requests==2.31.0
+python-decouple==3.8
+deep-translator==1.11.4
+groq==0.4.2
+google-generativeai==0.3.2
+Pillow==10.1.0
+gunicorn==21.2.0
+whitenoise==6.6.0
+dj-database-url==2.1.0
+django-cors-headers==4.3.1
+psycopg2-binary==2.9.9

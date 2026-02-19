@@ -1,0 +1,22 @@
+# Don't upload these to GitHub/Railway
+.env
+test_groq.py
+test_*.py
+*.key
+secrets.py
+
+# Virtual environment
+venv/
+.venv/
+
+# Python cache
+*.pyc
+__pycache__/
+
+# Database
+db.sqlite3
+plants_offline.db
+
+# OS files
+.DS_Store
+Thumbs.db

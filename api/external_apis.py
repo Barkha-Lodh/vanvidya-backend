@@ -6,7 +6,47 @@ from deep_translator import GoogleTranslator
 from decouple import config
 from PIL import Image
 import io
-import os
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HELPER FUNCTION
+# ═══════════════════════════════════════════════════════════════════════
+def format_plant_data(data):
+    """Format boolean or short values into descriptive text"""
+    if not data:
+        return data
+    
+    # Format edible field
+    edible = data.get('edible', '')
+    if isinstance(edible, str):
+        edible_lower = edible.lower()
+        if edible_lower in ['true', 'yes', 'edible']:
+            data['edible'] = "Yes, safe to consume (verify parts and preparation)"
+        elif edible_lower in ['false', 'no', 'not edible', 'inedible']:
+            data['edible'] = "Not edible, not safe for consumption"
+        elif len(edible) < 10:
+            data['edible'] = "Edibility information not available"
+    elif edible is True:
+        data['edible'] = "Yes, safe to consume (verify parts and preparation)"
+    elif edible is False:
+        data['edible'] = "Not edible, not safe for consumption"
+    
+    # Format toxic field
+    toxic = data.get('toxic', '')
+    if isinstance(toxic, str):
+        toxic_lower = toxic.lower()
+        if toxic_lower in ['false', 'no', 'non-toxic', 'safe']:
+            data['toxic'] = "Non-toxic and safe for humans and pets"
+        elif toxic_lower in ['true', 'yes', 'toxic', 'poisonous']:
+            data['toxic'] = "Contains toxic compounds, avoid ingestion"
+        elif len(toxic) < 10:
+            data['toxic'] = "Toxicity information not available"
+    elif toxic is True:
+        data['toxic'] = "Contains toxic compounds, avoid ingestion"
+    elif toxic is False:
+        data['toxic'] = "Non-toxic and safe for humans and pets"
+    
+    return data
 
 
 # ─── WIKIPEDIA API ────────────────────────────────────────────────────
@@ -54,12 +94,17 @@ class GroqPlantAPI:
         try:
             client = Groq(api_key=config('GROQ_API_KEY'))
             
+            # UPDATED PROMPT - More descriptive
             prompt = f'''Give plant details for "{plant_name}".
-Return ONLY JSON with these fields:
-scientific_name, family, hindi_name, watering, sunlight, soil_type, 
-indoor_outdoor, edible, toxic, warning, origin, growth_rate, fun_facts, 
-diseases (array with name, symptom, treatment).
-Only JSON no markdown.'''
+Return ONLY JSON with:
+- scientific_name, family, hindi_name
+- watering (describe frequency), sunlight (describe needs)
+- soil_type, indoor_outdoor
+- edible (describe which parts or say "Not edible")
+- toxic (describe toxicity or say "Non-toxic")
+- warning, origin, growth_rate, fun_facts
+- diseases array with name, symptom, treatment
+Be descriptive for edible and toxic fields. Only JSON no markdown.'''
             
             response = client.chat.completions.create(
                 messages=[{'role': 'user', 'content': prompt}],
@@ -75,14 +120,18 @@ Only JSON no markdown.'''
             elif '```' in text:
                 text = text.split('```')[1].split('```')[0].strip()
             
-            return json.loads(text)
+            # Parse JSON and format
+            result = json.loads(text)
+            result = format_plant_data(result)  # ← FORMAT DATA!
+            
+            return result
             
         except Exception as e:
             print(f'Groq error: {e}')
             return None
 
 
-# ─── GEMINI API (OLD PACKAGE) ─────────────────────────────────────────
+# ─── GEMINI API ───────────────────────────────────────────────────────
 class GeminiPlantAPI:
     @staticmethod
     def get_plant_data(plant_name):
@@ -90,35 +139,54 @@ class GeminiPlantAPI:
             genai.configure(api_key=config('GEMINI_API_KEY'))
             model = genai.GenerativeModel('gemini-2.0-flash-exp')
             
-            prompt = f'''Give detailed information about "{plant_name}".
-Return ONLY JSON:
+            # UPDATED PROMPT - Better instructions
+            prompt = f'''Give detailed information about the plant "{plant_name}".
+Return ONLY JSON in this exact format:
 {{
-    "scientific_name": "",
-    "family": "",
-    "hindi_name": "real Hindi word not transliteration",
-    "watering": "",
-    "sunlight": "",
-    "soil_type": "",
-    "indoor_outdoor": "",
-    "edible": "",
-    "toxic": "",
-    "warning": "",
-    "origin": "",
-    "growth_rate": "",
-    "fun_facts": "",
-    "diseases": [{{"name":"","symptom":"","treatment":""}}]
+    "scientific_name": "scientific name here",
+    "family": "plant family",
+    "hindi_name": "actual Hindi word not transliteration",
+    "watering": "watering frequency and amount",
+    "sunlight": "sunlight requirements",
+    "soil_type": "soil type needed",
+    "indoor_outdoor": "Indoor or Outdoor or Both",
+    "edible": "Describe if edible and which parts, or 'Not edible for consumption'",
+    "toxic": "Describe toxicity level and effects, or 'Non-toxic and safe'",
+    "warning": "Any warnings or precautions, or null if none",
+    "diseases": [
+        {{
+            "name": "disease name",
+            "symptom": "symptoms",
+            "treatment": "treatment method",
+        }}
+    "origin": "native region",
+    "growth_rate": "growth rate",
+    "fun_facts": "interesting facts"
+    ]
 }}
-Only JSON no markdown.'''
+
+IMPORTANT:
+- For "edible": Write full sentence describing which parts are edible
+- For "toxic": Write full sentence describing toxicity
+- For mushrooms: Specify if poisonous and severity
+- Be detailed and specific
+
+Return ONLY the JSON, no markdown.'''
             
             response = model.generate_content(prompt)
             text = response.text.strip()
             
+            # Clean markdown
             if '```json' in text:
                 text = text.split('```json')[1].split('```')[0].strip()
             elif '```' in text:
                 text = text.split('```')[1].split('```')[0].strip()
             
-            return json.loads(text)
+            # Parse JSON and format
+            result = json.loads(text)
+            result = format_plant_data(result)  # ← FORMAT DATA!
+            
+            return result
             
         except Exception as e:
             print(f'Gemini error: {e}')
@@ -173,15 +241,3 @@ class GoogleTranslateAPI:
             return translated
         except:
             return text
-        
-# Railway deployment
-
-
-if os.environ.get('RAILWAY_ENVIRONMENT'):
-    # Production mode on Railway
-    DEBUG = False
-    ALLOWED_HOSTS = ['.railway.app', '.up.railway.app']
-else:
-    # Development mode on laptop
-    DEBUG = True
-    ALLOWED_HOSTS = ['*']

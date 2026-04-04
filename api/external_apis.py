@@ -1,6 +1,7 @@
 import requests
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from groq import Groq
 from deep_translator import GoogleTranslator
 from decouple import config
@@ -8,9 +9,6 @@ from PIL import Image
 import io
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# HELPER FUNCTION
-# ═══════════════════════════════════════════════════════════════════════
 def format_plant_data(data):
     """Format boolean or short values into descriptive text"""
     if not data:
@@ -49,7 +47,7 @@ def format_plant_data(data):
     return data
 
 
-# ─── WIKIPEDIA API ────────────────────────────────────────────────────
+# ─── WIKIPEDIA API ───
 class WikipediaAPI:
     BASE_URL = 'https://en.wikipedia.org/api/rest_v1/page/summary/'
     
@@ -87,7 +85,7 @@ class WikipediaAPI:
         return None, None, None
 
 
-# ─── GROQ API ─────────────────────────────────────────────────────────
+# ─── GROQ API ───
 class GroqPlantAPI:
     @staticmethod
     def get_plant_data(plant_name):
@@ -131,16 +129,16 @@ Be descriptive for edible and toxic fields. Only JSON no markdown.'''
             return None
 
 
-# ─── GEMINI API ───────────────────────────────────────────────────────
+# ─── GEMINI API ────
 class GeminiPlantAPI:
+ 
     @staticmethod
     def get_plant_data(plant_name):
         try:
-            genai.configure(api_key=config('GEMINI_API_KEY'))
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            
-            # UPDATED PROMPT - Better instructions
+            client = genai.Client(api_key=config('GEMINI_API_KEY'))
+ 
             prompt = f'''Give detailed information about the plant "{plant_name}".
+Return ONLY JSON in this exact format:
 Return ONLY JSON in this exact format:
 {{
     "scientific_name": "scientific name here",
@@ -159,10 +157,10 @@ Return ONLY JSON in this exact format:
             "symptom": "symptoms",
             "treatment": "treatment method",
         }}
+    ],
     "origin": "native region",
     "growth_rate": "growth rate",
     "fun_facts": "interesting facts"
-    ]
 }}
 
 IMPORTANT:
@@ -172,35 +170,40 @@ IMPORTANT:
 - Be detailed and specific
 
 Return ONLY the JSON, no markdown.'''
-            
-            response = model.generate_content(prompt)
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
             text = response.text.strip()
-            
-            # Clean markdown
+ 
             if '```json' in text:
                 text = text.split('```json')[1].split('```')[0].strip()
             elif '```' in text:
                 text = text.split('```')[1].split('```')[0].strip()
-            
-            # Parse JSON and format
+ 
             result = json.loads(text)
-            result = format_plant_data(result)  # ← FORMAT DATA!
-            
+            result = format_plant_data(result)
             return result
-            
+ 
         except Exception as e:
-            print(f'Gemini error: {e}')
+            print(f'Gemini get_plant_data error: {e}')
             return None
     
     @staticmethod
     def identify_from_image(image_file):
         try:
-            genai.configure(api_key=config('GEMINI_API_KEY'))
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            
-            pil_image = Image.open(io.BytesIO(image_file.read()))
-            
-            prompt = '''Analyze this leaf image.
+            client = genai.Client(api_key=config('GEMINI_API_KEY'))
+ 
+            # Open and convert image using PIL
+            pil_image = Image.open(io.BytesIO(image_file.read())).convert("RGB")
+ 
+            # Convert PIL image to JPEG bytes for the new SDK
+            img_byte_arr = io.BytesIO()
+            pil_image.save(img_byte_arr, format='JPEG')
+            img_bytes = img_byte_arr.getvalue()
+
+            prompt = '''Analyze this plant or flower image carefully.
 Return ONLY JSON:
 {
     "plant_name": "common name",
@@ -216,20 +219,29 @@ Return ONLY JSON:
 }
 If unknown set plant_name to 'Unknown'. If healthy set disease to null.'''
             
-            response = model.generate_content([prompt, pil_image])
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
+                    prompt
+                ]
+            )
             text = response.text.strip()
-            
+ 
             if '```json' in text:
                 text = text.split('```json')[1].split('```')[0].strip()
             elif '```' in text:
                 text = text.split('```')[1].split('```')[0].strip()
-            
+ 
             return json.loads(text)
-            
+ 
         except Exception as e:
-            print(f'Gemini Vision error: {e}')
-            return None
-
+            print(f'Gemini identify_from_image error: {e}')
+            return {
+                "plant_name": "Unknown",
+                "confidence": 0,
+                "error": str(e)
+            }
 
 # ─── GOOGLE TRANSLATE ─────────────────────────────────────────────────
 class GoogleTranslateAPI:

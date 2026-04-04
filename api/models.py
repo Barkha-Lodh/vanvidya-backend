@@ -118,6 +118,76 @@ class Plant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    #--------------------------------------------------------
+    # NEW FIELDS FOR ADVANCED SEARCH
+    SIZE_CHOICES = [
+        ('small', 'Small (0-30cm)'),
+        ('medium', 'Medium (30cm-1m)'),
+        ('large', 'Large (1m-3m)'),
+        ('very_large', 'Very Large (3m+)'),
+    ]
+    size = models.CharField(
+        max_length=20, 
+        choices=SIZE_CHOICES, 
+        default='medium',
+        blank=True,
+        null=True
+    )
+    
+    GROWTH_HABIT_CHOICES = [
+        ('upright', 'Upright/Erect'),
+        ('spreading', 'Spreading'),
+        ('climbing', 'Climbing/Vining'),
+        ('trailing', 'Trailing'),
+        ('rosette', 'Rosette'),
+        ('bushy', 'Bushy/Shrubby'),
+    ]
+    growth_habit = models.CharField(
+        max_length=20, 
+        choices=GROWTH_HABIT_CHOICES,
+        blank=True,
+        null=True
+    )
+    
+    LEAF_SHAPE_CHOICES = [
+        ('oval', 'Oval'),
+        ('heart', 'Heart-shaped'),
+        ('elongated', 'Elongated/Lance'),
+        ('lobed', 'Lobed'),
+        ('compound', 'Compound/Divided'),
+        ('needle', 'Needle-like'),
+    ]
+    leaf_shape = models.CharField(
+        max_length=20, 
+        choices=LEAF_SHAPE_CHOICES,
+        blank=True,
+        null=True
+    )
+    
+    FLOWER_COLOR_CHOICES = [
+        ('white', 'White'),
+        ('yellow', 'Yellow'),
+        ('orange', 'Orange'),
+        ('red', 'Red'),
+        ('pink', 'Pink'),
+        ('purple', 'Purple'),
+        ('blue', 'Blue'),
+        ('green', 'Green'),
+        ('none', 'No flowers'),
+    ]
+    flower_color = models.CharField(
+        max_length=20, 
+        choices=FLOWER_COLOR_CHOICES,
+        blank=True,
+        null=True
+    )
+    
+    has_thorns = models.BooleanField(default=False)
+    has_fragrance = models.BooleanField(default=False)
+    is_succulent = models.BooleanField(default=False)
+
+    #--------------------------------------------------------
+
     def __str__(self):
         return f"{self.common_name} ({self.scientific_name})"
 

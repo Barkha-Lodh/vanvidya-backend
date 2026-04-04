@@ -1,11 +1,15 @@
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 from api.external_apis import (
     WikipediaAPI, GeminiPlantAPI, GroqPlantAPI, GoogleTranslateAPI)
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def get_complete_plant_info(request):
     plant_name = request.GET.get('name', '')
     if not plant_name:
@@ -57,6 +61,7 @@ def get_complete_plant_info(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def identify_plant_from_image(request):
     image_file = request.FILES.get('image')
     if not image_file:
@@ -114,3 +119,57 @@ def identify_plant_from_image(request):
     except Exception as e:
         return Response({'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def search_plants_by_attributes(request):
+    """Advanced search by attributes"""
+    plants = Plant.objects.all()
+    
+    # Filter by size
+    if 'size' in request.GET:
+        plants = plants.filter(size=request.GET['size'])
+    
+    # Filter by growth habit
+    if 'growth_habit' in request.GET:
+        plants = plants.filter(growth_habit=request.GET['growth_habit'])
+    
+    # Filter by leaf shape
+    if 'leaf_shape' in request.GET:
+        plants = plants.filter(leaf_shape=request.GET['leaf_shape'])
+    
+    # Filter by flower color
+    if 'flower_color' in request.GET:
+        plants = plants.filter(flower_color=request.GET['flower_color'])
+    
+    serializer = PlantSerializer(plants[:50], many=True)
+    
+    return Response({
+        'count': plants.count(),
+        'results': serializer.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_plants_by_category(request, category):
+    """Get plants by category"""
+    plants = Plant.objects.all()
+    
+    if category == 'climb':
+        plants = plants.filter(growth_habit='climbing')
+    elif category == 'cacti':
+        plants = plants.filter(is_succulent=True)
+    elif category == 'flower':
+        plants = plants.exclude(flower_color='none')
+    elif category == 'tree':
+        plants = plants.filter(Q(size='large') | Q(size='very_large'))
+    
+    serializer = PlantSerializer(plants[:20], many=True)
+    
+    return Response({
+        'category': category,
+        'count': plants.count(),
+        'plants': serializer.data
+    })

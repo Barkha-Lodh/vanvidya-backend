@@ -23,5 +23,9 @@ disease detection logic, and AI-enriched content.
 3. 🤖 Calls Gemini/Groq APIs to generate additional AI facts
 4. 📤 Returns a structured response to the frontend app
 
-## 🔌 API Endpoints
-*(List your key endpoints here, e.g. /api/plant-info/, /api/care-tips/, etc.)*
+|  Method  |             Endpoint             |                                 Description                                |
+|----------|----------------------------------|----------------------------------------------------------------------------|
+| GET/POST | /external/complete/              | Returns complete plant information by combining data from external sources |
+| POST     | /identify-leaf/                  | Identifies a plant species from an uploaded leaf/plant image               |
+| GET      | /api/plants/search/advanced/     | Searches for plants using advanced filters based on specific attributes    |
+| GET      | /api/plants/category/{category}/ | Returns a list of plants belonging to a specific category                  |
